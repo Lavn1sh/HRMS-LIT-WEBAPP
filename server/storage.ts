@@ -1,38 +1,46 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { db } from "./db";
+import {
+  employees,
+  attendance,
+  type Employee,
+  type InsertEmployee,
+  type AttendanceRecord,
+  type InsertAttendance
+} from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  getEmployees(): Promise<Employee[]>;
+  getEmployee(id: number): Promise<Employee | undefined>;
+  createEmployee(employee: InsertEmployee): Promise<Employee>;
+  
+  getAttendanceRecords(): Promise<AttendanceRecord[]>;
+  createAttendance(record: InsertAttendance): Promise<AttendanceRecord>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
+export class DatabaseStorage implements IStorage {
+  async getEmployees(): Promise<Employee[]> {
+    return await db.select().from(employees);
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getEmployee(id: number): Promise<Employee | undefined> {
+    const [employee] = await db.select().from(employees).where(eq(employees.id, id));
+    return employee;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async createEmployee(insertEmployee: InsertEmployee): Promise<Employee> {
+    const [employee] = await db.insert(employees).values(insertEmployee).returning();
+    return employee;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async getAttendanceRecords(): Promise<AttendanceRecord[]> {
+    return await db.select().from(attendance);
+  }
+
+  async createAttendance(insertAttendance: InsertAttendance): Promise<AttendanceRecord> {
+    const [record] = await db.insert(attendance).values(insertAttendance).returning();
+    return record;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
